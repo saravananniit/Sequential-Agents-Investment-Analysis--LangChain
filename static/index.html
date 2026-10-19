@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sequential Agents · Investment Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1c2230;--mute:#667085;--line:#e3e6ec;--acc:#2f5bea;--ok:#12805c;--bad:#c0362c;--warn:#b7791f}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:18px 28px;border-bottom:1px solid var(--line);background:var(--card)}
+  header h1{margin:0;font-size:18px}
+  header p{margin:2px 0 0;color:var(--mute);font-size:13px}
+  main{display:grid;grid-template-columns:360px 1fr;gap:20px;padding:20px 28px;max-width:1400px;margin:0 auto}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:0 0 12px}
+  label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:2px solid #c9d6ff;border-color:var(--acc)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .keywrap{position:relative}
+  .keywrap button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--mute);cursor:pointer;font-size:12px}
+  .keywrap input{padding-right:48px}
+  button.primary{background:var(--acc);color:#fff;border:0;border-radius:7px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+  button.primary:disabled{opacity:.5;cursor:not-allowed}
+  button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 12px;font:inherit;cursor:pointer}
+  .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .hint{font-size:12px;color:var(--mute);margin-top:4px}
+  .chk{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px}
+  .chk input{width:auto}
+  .status{font-size:13px;margin-top:10px}
+  .status .ok{color:var(--ok)} .status .bad{color:var(--bad)}
+  .steps{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .step{flex:1;min-width:170px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafbfc}
+  .step b{display:block;font-size:13px}
+  .step small{color:var(--mute)}
+  .step.run{border-color:var(--acc);background:#eef2ff}
+  .step.done{border-color:#9fd8c3;background:#effaf5}
+  .step.err{border-color:#e7a8a2;background:#fdf1f0}
+  .spin{display:inline-block;width:10px;height:10px;border:2px solid var(--acc);border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite;margin-right:6px;vertical-align:-1px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  #report{line-height:1.6}
+  #report img{max-width:100%;border-radius:8px}
+  #report table{border-collapse:collapse;width:100%;margin:10px 0}
+  #report th,#report td{border:1px solid var(--line);padding:6px 10px}
+  #report th{background:#f2f4f8}
+  details{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fafbfc}
+  summary{cursor:pointer;font-weight:600;font-size:13px}
+  .err-box{background:#fdf1f0;border:1px solid #e7a8a2;color:#7a1f18;padding:10px 12px;border-radius:8px;white-space:pre-wrap}
+  .empty{color:var(--mute);text-align:center;padding:40px 0}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sequential Agents · Investment Analysis</h1>
+  <p>Researcher (Tavily) → Finance (Yahoo! Finance) → Analysis &amp; Editor (Calculator) — built with LangChain</p>
+</header>
+
+<main>
+  <!-- ============ CONFIG ============ -->
+  <section class="card">
+    <h2>Configuration</h2>
+
+    <label for="provider">Model provider</label>
+    <select id="provider">
+      <option value="azure">Azure OpenAI</option>
+      <option value="openai">OpenAI / OpenAI-compatible</option>
+    </select>
+
+    <div id="azureBox">
+      <label for="azure_endpoint">Azure endpoint</label>
+      <input id="azure_endpoint" placeholder="https://my-resource.openai.azure.com/" autocomplete="off">
+      <label for="azure_deployment">Deployment name</label>
+      <input id="azure_deployment" placeholder="gpt-4o" autocomplete="off">
+      <label for="api_version">API version</label>
+      <select id="api_version">
+        <option>2025-02-01-preview</option><option>2025-01-01-preview</option>
+        <option>2024-12-01-preview</option><option>2024-10-01-preview</option>
+        <option>2024-08-01-preview</option><option>2024-06-01</option>
+        <option>2024-02-15-preview</option><option>2023-05-15</option>
+      </select>
+    </div>
+
+    <div id="openaiBox" class="hide">
+      <label for="model">Model name</label>
+      <input id="model" value="gpt-4o" autocomplete="off">
+      <label for="base_url">Base URL <span style="font-weight:400;color:var(--mute)">(optional)</span></label>
+      <input id="base_url" placeholder="https://api.openai.com/v1" autocomplete="off">
+    </div>
+
+    <label for="api_key">LLM API key</label>
+    <div class="keywrap"><input id="api_key" type="password" autocomplete="off" placeholder="sk-… / Azure key"><button type="button" data-toggle="api_key">show</button></div>
+
+    <label for="tavily_api_key">Tavily API key</label>
+    <div class="keywrap"><input id="tavily_api_key" type="password" autocomplete="off" placeholder="tvly-…"><button type="button" data-toggle="tavily_api_key">show</button></div>
+
+    <div class="row">
+      <div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7"></div>
+      <div><label for="max_iterations">Max iterations</label><input id="max_iterations" type="number" min="10" max="40" value="15"></div>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="remember"> Remember settings in this browser (localStorage)</label>
+    <div class="hint">Keys are sent only to your own backend with each request and are never written to disk on the server.</div>
+
+    <div class="actions">
+      <button class="ghost" id="testBtn" type="button">Test connection</button>
+      <button class="ghost" id="clearBtn" type="button">Clear saved</button>
+    </div>
+    <div class="status" id="testStatus"></div>
+  </section>
+
+  <!-- ============ RUN ============ -->
+  <section>
+    <div class="card">
+      <h2>Question</h2>
+      <textarea id="question" rows="3">Should I invest in Tesla (TSLA) stock right now? Please analyze the company's current position, market trends, financial health, and provide a clear investment recommendation.</textarea>
+      <div class="hint">Include a financial angle, e.g. "Should I invest in Tesla (TSLA)? Focus on AI development impact".</div>
+      <div class="actions"><button class="primary" id="runBtn" type="button">Run analysis</button></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Progress &amp; result</h2>
+      <div class="steps">
+        <div class="step" id="s1"><b>1 · Researcher</b><small>Tavily web search</small></div>
+        <div class="step" id="s2"><b>2 · Finance</b><small>Yahoo! Finance data</small></div>
+        <div class="step" id="s3"><b>3 · Analysis &amp; Editor</b><small>Calculator + final report</small></div>
+      </div>
+      <div id="error" class="err-box hide"></div>
+      <div id="report"><div class="empty">The final report appears here.</div></div>
+      <div id="intermediate"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ["provider","azure_endpoint","azure_deployment","api_version","model","base_url",
+                "api_key","tavily_api_key","temperature","max_iterations"];
+const LS_KEY = "seq-agents-config";
+
+function readConfig(){
+  const c = {};
+  FIELDS.forEach(f => c[f] = $(f).value.trim());
+  c.temperature = parseFloat(c.temperature || "0.7");
+  c.max_iterations = parseInt(c.max_iterations || "15", 10);
+  if (c.provider === "azure"){ delete c.model; delete c.base_url; }
+  else { delete c.azure_endpoint; delete c.azure_deployment; delete c.api_version; if(!c.base_url) delete c.base_url; }
+  return c;
+}
+function validate(c){
+  const miss = [];
+  if(!c.api_key) miss.push("LLM API key");
+  if(!c.tavily_api_key) miss.push("Tavily API key");
+  if(c.provider==="azure"){ if(!c.azure_endpoint) miss.push("Azure endpoint"); if(!c.azure_deployment) miss.push("Deployment name"); }
+  else if(!c.model) miss.push("Model name");
+  return miss;
+}
+function syncProvider(){
+  const az = $("provider").value === "azure";
+  $("azureBox").classList.toggle("hide", !az);
+  $("openaiBox").classList.toggle("hide", az);
+}
+function save(){
+  if(!$("remember").checked) return;
+  const o = {}; FIELDS.forEach(f => o[f] = $(f).value); o.remember = true;
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(e){}
+}
+function load(){
+  try{
+    const o = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+    if(!o) return;
+    FIELDS.forEach(f => { if(o[f] !== undefined) $(f).value = o[f]; });
+    $("remember").checked = !!o.remember;
+  }catch(e){}
+}
+FIELDS.forEach(f => $(f).addEventListener("input", save));
+$("remember").addEventListener("change", () => {
+  if($("remember").checked) save(); else try{ localStorage.removeItem(LS_KEY); }catch(e){}
+});
+$("provider").addEventListener("change", () => { syncProvider(); save(); });
+$("clearBtn").onclick = () => { try{ localStorage.removeItem(LS_KEY); }catch(e){}; $("remember").checked = false; $("testStatus").textContent = "Saved settings cleared."; };
+document.querySelectorAll("[data-toggle]").forEach(b => b.onclick = () => {
+  const i = $(b.dataset.toggle); const show = i.type === "password";
+  i.type = show ? "text" : "password"; b.textContent = show ? "hide" : "show";
+});
+
+// ---------- test connection ----------
+$("testBtn").onclick = async () => {
+  const c = readConfig(), miss = validate(c), st = $("testStatus");
+  if(miss.length){ st.innerHTML = `<span class="bad">Missing: ${miss.join(", ")}</span>`; return; }
+  $("testBtn").disabled = true; st.textContent = "Testing…";
+  try{
+    const r = await fetch("/api/check", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(c)});
+    if(!r.ok) throw new Error("HTTP " + r.status + " " + await r.text());
+    const j = await r.json();
+    const line = (n, x) => `<div><span class="${x.ok?'ok':'bad'}">${x.ok?'✓':'✗'}</span> ${n}: ${x.detail.replace(/</g,'&lt;')}</div>`;
+    st.innerHTML = line("LLM", j.llm) + line("Tavily", j.tavily);
+  }catch(e){ st.innerHTML = `<span class="bad">${String(e).replace(/</g,'&lt;')}</span>`; }
+  $("testBtn").disabled = false;
+};
+
+// ---------- run ----------
+const setStep = (n, cls, sub) => { const el = $("s"+n); el.className = "step " + cls; if(sub !== undefined) el.querySelector("small").innerHTML = sub; };
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const md = t => DOMPurify.sanitize(marked.parse(t || ""));
+
+$("runBtn").onclick = async () => {
+  const c = readConfig(), miss = validate(c), q = $("question").value.trim();
+  $("error").classList.add("hide");
+  if(miss.length){ $("error").textContent = "Please fill in: " + miss.join(", "); $("error").classList.remove("hide"); return; }
+  if(!q){ $("error").textContent = "Enter a question."; $("error").classList.remove("hide"); return; }
+
+  [1,2,3].forEach(n => setStep(n, ""));
+  $("report").innerHTML = '<div class="empty">Running… this can take a few minutes.</div>';
+  $("intermediate").innerHTML = "";
+  $("runBtn").disabled = true;
+
+  const names = {1:"Researcher output", 2:"Finance output", 3:"Editor output"};
+  try{
+    const res = await fetch("/api/run", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({config:c, question:q})});
+    if(!res.ok) throw new Error("HTTP " + res.status + ": " + await res.text());
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    while(true){
+      const {value, done} = await reader.read(); if(done) break;
+      buf += dec.decode(value, {stream:true});
+      let i;
+      while((i = buf.indexOf("\n")) >= 0){
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i+1);
+        if(!line) continue;
+        const ev = JSON.parse(line);
+        if(ev.type === "stage_start") setStep(ev.stage, "run", '<span class="spin"></span>working…');
+        else if(ev.type === "stage_done"){
+          const t = ev.tools.length ? "tools: " + [...new Set(ev.tools)].join(", ") : "no tools called";
+          setStep(ev.stage, "done", "✓ " + t);
+          if(ev.stage < 3) $("intermediate").insertAdjacentHTML("beforeend",
+            `<details><summary>${names[ev.stage]}</summary><div>${md(ev.output)}</div></details>`);
+        }
+        else if(ev.type === "final") $("report").innerHTML = md(ev.report);
+        else if(ev.type === "error"){
+          [1,2,3].forEach(n => { if($("s"+n).classList.contains("run")) setStep(n, "err", "failed"); });
+          $("report").innerHTML = '<div class="empty">No report.</div>';
+          $("error").textContent = ev.message; $("error").classList.remove("hide");
+        }
+      }
+    }
+  }catch(e){
+    $("error").textContent = String(e); $("error").classList.remove("hide");
+    $("report").innerHTML = '<div class="empty">No report.</div>';
+  }
+  $("runBtn").disabled = false;
+};
+
+load(); syncProvider();
+</script>
+</body>
+</html>
